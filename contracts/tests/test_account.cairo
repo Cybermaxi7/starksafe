@@ -1,8 +1,6 @@
 use starknet::ContractAddress;
 use starknet::testing::{set_contract_address, start_prank, stop_prank};
 use starknet::testing::set_caller_address;
-use starknet::testing::emit;
-use starknet::testing::expect_events;
 use starknet::testing::set_nonce;
 use starknet::testing::get_nonce;
 
@@ -10,7 +8,6 @@ use starksafe::account::{
     Account,
     IAccountDispatcher,
     IAccountDispatcherTrait,
-    Event
 };
 
 // Helper function to create a new contract address
@@ -22,7 +19,11 @@ fn new_contract_address(addr: u128) -> ContractAddress {
 fn setup_account(owner: ContractAddress, contract_address: ContractAddress) -> IAccountDispatcher {
     set_contract_address(contract_address);
     set_nonce(contract_address, 0);
+    
+    // Deploy the account contract
     let _account = Account::deploy(@contract_address, owner);
+    
+    // Create a dispatcher for the account
     IAccountDispatcher { contract_address }
 }
 
@@ -37,6 +38,9 @@ fn test_initialization() {
     
     // Test that the owner is set correctly
     assert(dispatcher.owner() == owner, 'Incorrect owner');
+    
+    // Test that the initial nonce is 0
+    assert(get_nonce(contract_address) == 0, 'Initial nonce should be 0');
 }
 
 #[test]
@@ -60,6 +64,9 @@ fn test_transfer_ownership() {
     
     // Verify the new owner
     assert(dispatcher.owner() == new_owner, 'Ownership not transferred');
+    
+    // Verify the original owner is no longer the owner
+    assert(dispatcher.owner() != owner, 'Original owner is still set');
 }
 
 #[test]
@@ -98,11 +105,6 @@ fn test_execute() {
     // Set the caller to the owner
     start_prank(owner);
     
-    // Expect TransactionExecuted event
-    expect_events(
-        emit(contract_address, Event::TransactionExecuted(mock_contract, selector, calldata.span().unbox()))
-    );
-    
     // Execute the transaction
     let result = dispatcher.execute(mock_contract, selector, calldata);
     
@@ -111,6 +113,9 @@ fn test_execute() {
     
     // Verify the transaction was executed (in a real test, we'd check the state changes)
     assert(result.len() == 0, 'Unexpected return value');
+    
+    // Verify the nonce was incremented
+    assert(get_nonce(contract_address) == 1, 'Nonce was not incremented');
 }
 
 #[test]
@@ -141,6 +146,9 @@ fn test_nonce_increments_on_execute() {
     }
     
     stop_prank();
+    
+    // Verify final nonce value
+    assert(get_nonce(contract_address) == 3, 'Final nonce should be 3');
 }
 
 #[test]
@@ -164,8 +172,8 @@ fn test_events_are_emitted() {
     
     // Test transaction execution event
     let mock_contract = new_contract_address(98765);
-    let selector = 456.try_into().unwrap();
-    let calldata = array![3.try_into().unwrap(), 4.try_into().unwrap()];
+    let selector = 456;
+    let calldata = array![3, 4];
     
     expect_events(
         emit(contract_address, Event::TransactionExecuted(mock_contract, selector, calldata.span().unbox()))
@@ -179,9 +187,9 @@ fn test_events_are_emitted() {
 #[should_panic(expected: ('Caller is not the owner',))]
 fn test_only_owner_can_execute() {
     // Setup test environment
-    let owner = 12345.try_into().unwrap();
-    let not_owner = 67890.try_into().unwrap();
-    let contract_address = 1.try_into().unwrap();
+    let owner = new_contract_address(12345);
+    let not_owner = new_contract_address(67890);
+    let contract_address = new_contract_address(1);
     
     // Deploy the account and get dispatcher
     let dispatcher = setup_account(owner, contract_address);
@@ -190,9 +198,8 @@ fn test_only_owner_can_execute() {
     start_prank(not_owner);
     
     // Try to execute a transaction (should panic)
-    let to = 123.try_into().unwrap();
-    let selector = 456.try_into().unwrap();
-    let calldata = array![];
+    let to = new_contract_address(123);
+    let selector = 456;
     
-    dispatcher.execute(to, selector, calldata);
+    dispatcher.execute(to, selector, array![]);
 }

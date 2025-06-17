@@ -2,14 +2,10 @@
 mod Account {
     use starknet::ContractAddress;
     use starknet::get_caller_address;
+    use starknet::storage::StorageAccess;
+    use starknet::storage::StoragePointerReadAccess;
+    use starknet::storage::StoragePointerWriteAccess;
     use starknet::storage::StorageMap;
-    use starknet::storage_access::StorageMapReadAccess;
-    use starknet::storage_access::StorageMapWriteAccess;
-    use starknet::call_contract_syscall::CallResultTrait;
-    use starknet::call_contract_syscall::CallContext;
-    use starknet::call_contract_syscall::call_contract_syscall;
-    use starknet::call_contract_syscall::CallResultTraitImpl;
-    use starknet::call_contract_syscall::CallResultTrait;
 
     #[starknet::interface]
     pub trait IAccount<T> {
@@ -27,24 +23,24 @@ mod Account {
 
     #[storage]
     struct Storage {
-        owner: StorageMap<(), ContractAddress>,
-        nonce: StorageMap<(), u64>,
+        owner: ContractAddress,
+        nonce: u64,
     }
-
+    
     #[event]
     #[derive(Drop, starknet::Event)]
     enum Event {
         TransactionExecuted: TransactionExecuted,
         OwnershipTransferred: OwnershipTransferred,
     }
-
+    
     #[derive(Drop, starknet::Event)]
     struct TransactionExecuted {
         to: ContractAddress,
         selector: u32,
         calldata: Span<u128>,
     }
-
+    
     #[derive(Drop, starknet::Event)]
     struct OwnershipTransferred {
         previous_owner: ContractAddress,
@@ -53,14 +49,59 @@ mod Account {
 
     #[constructor]
     fn constructor(ref self: ContractState, owner: ContractAddress) {
-        self.owner.write((), owner);
-        self.nonce.write((), 0);
+        self.owner.write(owner);
+        self.nonce.write(0);
     }
-
-    #[external(v0)]
+    
+    #[abi(embed_v0)]
     impl AccountImpl of IAccount<ContractState> {
+
         fn owner(self: @ContractState) -> ContractAddress {
-            self.owner.read(())
+            self.owner.read()
+        }
+
+        fn execute(
+            self: @ContractState,
+            to: ContractAddress,
+            selector: u32,
+            calldata: Array<u128>,
+        ) -> Array<u128> {
+            // Only the owner can execute transactions
+            let caller = get_caller_address();
+            let owner = self.owner.read();
+            assert(caller == owner, 'Caller is not the owner');
+
+            // Increment nonce
+            let current_nonce = self.nonce.read();
+            self.nonce.write(current_nonce + 1);
+
+            // In a real implementation, we would execute the call here
+            // For now, we'll just return an empty array as a placeholder
+            
+            // Emit event
+            self.emit(Event::TransactionExecuted(TransactionExecuted { 
+                to, 
+                selector, 
+                calldata: calldata.span() 
+            }));
+
+            ArrayTrait::new()
+        }
+
+        fn transfer_ownership(ref self: ContractState, new_owner: ContractAddress) {
+            // Only the owner can transfer ownership
+            let caller = get_caller_address();
+            let current_owner = self.owner.read();
+            assert(caller == current_owner, 'Caller is not the owner');
+
+            // Emit event
+            self.emit(Event::OwnershipTransferred(OwnershipTransferred {
+                previous_owner: current_owner,
+                new_owner,
+            }));
+
+            // Update owner
+            self.owner.write(new_owner);
         }
     }
 }
