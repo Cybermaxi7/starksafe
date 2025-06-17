@@ -1,25 +1,18 @@
-fn main() -> u32 {
-    fib(16)
-}
+//! # Starksafe Account Abstraction
+//! 
+//! This crate provides an account abstraction implementation for Starknet.
 
-fn fib(mut n: u32) -> u32 {
-    let mut a: u32 = 0;
-    let mut b: u32 = 1;
-    while n != 0 {
-        n = n - 1;
-        let temp = b;
-        b = a + b;
-        a = temp;
-    };
-    a
-}
+// Re-export the account module
+pub mod account;
 
+// For testing
 #[cfg(test)]
 mod tests {
-    use super::fib;
-
+    use super::*;
+    
     #[test]
     fn it_works() {
-        assert(fib(16) == 987, 'it works!');
+        // Simple test to verify the test framework is working
+        assert(1 == 1, 'Sanity check');
     }
 }
