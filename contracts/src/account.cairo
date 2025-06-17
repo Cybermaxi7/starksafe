@@ -1,3 +1,20 @@
+use starknet::ContractAddress;
+use starknet::get_caller_address;
+
+#[starknet::interface]
+pub trait IAccount<T> {
+    fn execute(
+        self: @T,
+        to: ContractAddress,
+        selector: u32,
+        calldata: Array<u128>,
+    ) -> Array<u128>;
+
+    fn transfer_ownership(ref self: T, new_owner: ContractAddress);
+    
+    fn owner(self: @T) -> ContractAddress;
+}
+
 #[starknet::contract]
 mod Account {
     use super::IAccount;
@@ -6,24 +23,8 @@ mod Account {
     use starknet::storage::StorageAccess;
     use starknet::storage::StoragePointerReadAccess;
     use starknet::storage::StoragePointerWriteAccess;
-    use starknet::storage::StoragePointer;
-    use starknet::storage::StoragePointerTrait;
-    use starknet::storage::StorageMap;
-    use starknet::event::EventEmitter;
 
-    #[starknet::interface]
-    pub trait IAccount<T> {
-        fn execute(
-            self: @T,
-            to: ContractAddress,
-            selector: u32,
-            calldata: Array<u128>,
-        ) -> Array<u128>;
 
-        fn transfer_ownership(ref self: T, new_owner: ContractAddress);
-        
-        fn owner(self: @T) -> ContractAddress;
-    }
 
     #[storage]
     struct Storage {
