@@ -1,11 +1,15 @@
 #[starknet::contract]
 mod Account {
+    use super::IAccount;
     use starknet::ContractAddress;
     use starknet::get_caller_address;
     use starknet::storage::StorageAccess;
     use starknet::storage::StoragePointerReadAccess;
     use starknet::storage::StoragePointerWriteAccess;
+    use starknet::storage::StoragePointer;
+    use starknet::storage::StoragePointerTrait;
     use starknet::storage::StorageMap;
+    use starknet::event::EventEmitter;
 
     #[starknet::interface]
     pub trait IAccount<T> {
@@ -26,6 +30,7 @@ mod Account {
         owner: ContractAddress,
         nonce: u64,
     }
+
     
     #[event]
     #[derive(Drop, starknet::Event)]
@@ -84,7 +89,8 @@ mod Account {
                 selector, 
                 calldata: calldata.span() 
             }));
-
+            
+            // Return empty array as placeholder
             ArrayTrait::new()
         }
 
@@ -102,6 +108,10 @@ mod Account {
 
             // Update owner
             self.owner.write(new_owner);
+            
+            // Update nonce
+            let current_nonce = self.nonce.read();
+            self.nonce.write(current_nonce + 1);
         }
     }
 }
